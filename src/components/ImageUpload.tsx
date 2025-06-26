@@ -5,7 +5,7 @@ import { Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface DataUploadProps {
-  onDataUpload: (dataUrl: string) => void;
+  onDataUpload: (dataUrl: string, filename: string) => void;
 }
 
 interface UploadStatus {
@@ -42,7 +42,7 @@ export default function DataUpload({ onDataUpload }: DataUploadProps) {
       setUploadStatus({ loading: false, success: true, error: null });
       
       // Use the server URL for the file
-      onDataUpload(result.url);
+      onDataUpload(result.url, result.filename);
       
       // Show success toast
       toast.success(`File "${file.name}" uploaded successfully!`);

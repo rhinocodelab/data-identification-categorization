@@ -34,18 +34,83 @@ export default function AudioCategorizePlayer({
     audio.addEventListener('loadedmetadata', updateDuration);
     audio.addEventListener('ended', handleEnded);
 
-    // Test if the audio file exists
-    fetch(audioUrl, { method: 'HEAD' })
-      .then(response => {
-        console.log('Audio file fetch test:', response.status, response.statusText);
-        if (!response.ok) {
-          setAudioError(`Audio file not found (${response.status}): ${audioUrl}`);
-        }
-      })
-      .catch(error => {
-        console.error('Audio file fetch error:', error);
-        setAudioError(`Audio file fetch failed: ${error.message}`);
-      });
+    // Debug audio URL
+    console.log('AudioCategorizePlayer - Audio URL:', audioUrl);
+    console.log('AudioCategorizePlayer - Audio URL type:', typeof audioUrl);
+    console.log('AudioCategorizePlayer - Audio URL length:', audioUrl?.length);
+
+    // Test if the audio file exists - only if we have a valid URL
+    if (audioUrl && audioUrl.trim() !== '') {
+      // Validate URL format
+      try {
+        const url = new URL(audioUrl, window.location.origin);
+        console.log('AudioCategorizePlayer - Validated URL:', url.href);
+      } catch (urlError) {
+        console.error('AudioCategorizePlayer - Invalid URL format:', audioUrl, urlError);
+        setAudioError(`Invalid audio URL format: ${audioUrl}`);
+        return;
+      }
+
+      // Test if the file is accessible via fetch first
+      fetch(audioUrl, { method: 'HEAD' })
+        .then(response => {
+          console.log('AudioCategorizePlayer - Fetch test response:', response.status, response.statusText);
+          console.log('AudioCategorizePlayer - Content-Type:', response.headers.get('content-type'));
+          console.log('AudioCategorizePlayer - Content-Length:', response.headers.get('content-length'));
+          
+          if (!response.ok) {
+            setAudioError(`Audio file not accessible: ${response.status} ${response.statusText}`);
+            return;
+          }
+          
+          // If fetch succeeds, try loading with audio element
+          const testAudio = new Audio();
+          testAudio.preload = 'metadata';
+          
+          testAudio.onloadstart = () => {
+            console.log('AudioCategorizePlayer - Audio file loading started for URL:', audioUrl);
+            setAudioError(null);
+          };
+          
+          testAudio.oncanplay = () => {
+            console.log('AudioCategorizePlayer - Audio file can play:', audioUrl);
+            setAudioError(null);
+          };
+          
+          testAudio.onerror = (e: string | Event) => {
+            console.error('AudioCategorizePlayer - Audio file test error:', e);
+            if (typeof e === 'string') {
+              setAudioError(`Audio file error: ${e}`);
+            } else {
+              const target = e.target as HTMLAudioElement;
+              console.error('AudioCategorizePlayer - Audio element error details:', {
+                error: target.error,
+                readyState: target.readyState,
+                networkState: target.networkState,
+                src: target.src
+              });
+              const errorMessage = target.error?.message || 'Audio file not accessible';
+              setAudioError(`Audio file error: ${errorMessage}`);
+            }
+          };
+          
+          testAudio.src = audioUrl;
+        })
+        .catch(fetchError => {
+          console.error('AudioCategorizePlayer - Fetch test failed:', fetchError);
+          setAudioError(`Audio file fetch failed: ${fetchError.message}`);
+        });
+      
+      // Cleanup function for the test audio
+      return () => {
+        audio.removeEventListener('timeupdate', updateTime);
+        audio.removeEventListener('loadedmetadata', updateDuration);
+        audio.removeEventListener('ended', handleEnded);
+      };
+    } else {
+      console.warn('AudioCategorizePlayer - No audio URL provided or empty URL');
+      setAudioError('No audio URL provided');
+    }
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime);
@@ -93,16 +158,65 @@ export default function AudioCategorizePlayer({
           src={audioUrl} 
           preload="metadata"
           onError={(e) => {
-            console.error('Audio loading error:', e);
-            console.error('Audio URL:', audioUrl);
+            console.error('AudioCategorizePlayer - Main audio loading error event:', e);
+            console.error('AudioCategorizePlayer - Audio URL:', audioUrl);
             const target = e.target as HTMLAudioElement;
-            setAudioError(`Audio loading failed: ${target.error?.message || 'Unknown error'}`);
+            console.error('AudioCategorizePlayer - Audio element error:', target.error);
+            console.error('AudioCategorizePlayer - Audio element readyState:', target.readyState);
+            console.error('AudioCategorizePlayer - Audio element networkState:', target.networkState);
+            console.error('AudioCategorizePlayer - Audio element src:', target.src);
+            
+            // Get more detailed error information
+            let errorMessage = 'Unknown error';
+            if (target.error) {
+              console.error('AudioCategorizePlayer - MediaError code:', target.error.code);
+              console.error('AudioCategorizePlayer - MediaError message:', target.error.message);
+              
+              switch (target.error.code) {
+                case MediaError.MEDIA_ERR_ABORTED:
+                  errorMessage = 'Audio loading was aborted';
+                  break;
+                case MediaError.MEDIA_ERR_NETWORK:
+                  errorMessage = 'Network error while loading audio';
+                  break;
+                case MediaError.MEDIA_ERR_DECODE:
+                  errorMessage = 'Audio decoding error';
+                  break;
+                case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                  errorMessage = 'Audio format not supported';
+                  break;
+                default:
+                  errorMessage = target.error.message || 'Unknown media error';
+              }
+            } else {
+              // Check network state for additional clues
+              console.error('AudioCategorizePlayer - No MediaError, checking network state');
+              switch (target.networkState) {
+                case HTMLMediaElement.NETWORK_EMPTY:
+                  errorMessage = 'Audio not loaded';
+                  break;
+                case HTMLMediaElement.NETWORK_IDLE:
+                  errorMessage = 'Audio loaded but idle';
+                  break;
+                case HTMLMediaElement.NETWORK_LOADING:
+                  errorMessage = 'Audio is loading';
+                  break;
+                case HTMLMediaElement.NETWORK_NO_SOURCE:
+                  errorMessage = 'No audio source available';
+                  break;
+                default:
+                  errorMessage = 'Audio loading failed';
+              }
+            }
+            
+            setAudioError(`Audio loading failed: ${errorMessage}`);
           }}
           onLoadStart={() => {
-            console.log('Audio loading started for URL:', audioUrl);
+            console.log('AudioCategorizePlayer - Main audio loading started for URL:', audioUrl);
             setAudioError(null);
           }}
           onCanPlay={() => {
+            console.log('AudioCategorizePlayer - Main audio can play:', audioUrl);
             setAudioError(null);
           }}
         />

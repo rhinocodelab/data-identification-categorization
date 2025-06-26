@@ -23,6 +23,7 @@ interface ImageMetadata {
 
 export interface ImageMetadataTableRef {
   refresh: () => void;
+  highlightNewUpload: (filename: string) => void;
 }
 
 export default forwardRef<ImageMetadataTableRef>((props, ref) => {
@@ -33,6 +34,7 @@ export default forwardRef<ImageMetadataTableRef>((props, ref) => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(7);
+  const [highlightedFiles, setHighlightedFiles] = useState<Set<string>>(new Set());
 
   const fetchImages = async () => {
     try {
@@ -119,9 +121,24 @@ export default forwardRef<ImageMetadataTableRef>((props, ref) => {
     }
   };
 
-  // Expose the refresh function to parent component
+  // Function to highlight a newly uploaded file
+  const highlightNewUpload = (filename: string) => {
+    setHighlightedFiles(prev => new Set([...prev, filename]));
+    
+    // Remove highlight after 5 seconds
+    setTimeout(() => {
+      setHighlightedFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(filename);
+        return newSet;
+      });
+    }, 5000);
+  };
+
+  // Expose the refresh and highlight functions to parent component
   useImperativeHandle(ref, () => ({
-    refresh: fetchImages
+    refresh: fetchImages,
+    highlightNewUpload: highlightNewUpload
   }));
 
   const deleteImage = async (filename: string) => {
@@ -325,7 +342,14 @@ export default forwardRef<ImageMetadataTableRef>((props, ref) => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {currentImages.map((image) => (
-                  <tr key={image.filename} className="hover:bg-gray-50 transition-colors">
+                  <tr 
+                    key={image.filename} 
+                    className={`transition-all duration-500 ${
+                      highlightedFiles.has(image.filename)
+                        ? 'bg-green-50 border-l-4 border-l-green-500 shadow-sm'
+                        : 'hover:bg-gray-50'
+                    }`}
+                  >
                     <td className="px-4 py-4 whitespace-nowrap">
                       {image.fileType === 'pdf' ? (
                         <div className="h-12 w-12 bg-red-100 border border-red-200 rounded flex items-center justify-center">

@@ -845,15 +845,15 @@ export default function AnnotatePage() {
       const response = await fetch('/api/auto-categorize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataId })
+        body: JSON.stringify({ fileId: dataId, fileType: 'audio' })
       });
       const result = await response.json();
       if (result.success) {
         setAutoCategoryResult(result);
-        toast.success(`Predicted: ${result.categoryName} (${Math.round(result.confidence * 100)}%)\n${result.reason}`);
+        toast.success(`Predicted: ${result.category} (${Math.round(result.confidence * 100)}%)`);
         // Auto-select the category if it exists
-        if (result.categoryId && result.categoryName && categories.length > 0) {
-          const match = categories.find(cat => cat.id === result.categoryId || cat.name === result.categoryName);
+        if (result.category && categories.length > 0) {
+          const match = categories.find(cat => cat.name === result.category);
           if (match) setSelectedCategoryId(match.id);
         }
       } else {
@@ -978,7 +978,7 @@ export default function AnnotatePage() {
                 >
                   Save
                 </button>
-                {fileType === 'audio' && (
+                {fileType === 'audio' && !selectedFile?.includes('/data/audio/') && (
                   <button
                     onClick={handleAutoCategorize}
                     disabled={autoCategorizeLoading}

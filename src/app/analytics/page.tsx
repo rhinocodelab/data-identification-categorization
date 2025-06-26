@@ -1,134 +1,185 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { 
+  BarChart3, 
+  PieChart, 
+  TrendingUp, 
+  FileText, 
+  Image, 
+  FileAudio, 
+  FileJson, 
+  File,
+  Users,
+  Target,
+  Activity,
+  Calendar,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Database,
+  Tag,
+  Layers
+} from 'lucide-react';
 import Header from '@/components/Header';
 import Breadcrumb from '@/components/Breadcrumb';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer as BarResponsiveContainer } from 'recharts';
+import OverviewDashboard from '@/components/analytics/OverviewDashboard';
+import CategoryInsights from '@/components/analytics/CategoryInsights';
+import RuleEffectiveness from '@/components/analytics/RuleEffectiveness';
+import DataTypeDistribution from '@/components/analytics/DataTypeDistribution';
+import AnnotationStatistics from '@/components/analytics/AnnotationStatistics';
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316', '#06B6D4', '#84CC16'];
+interface AnalyticsData {
+  overview: {
+    totalFiles: number;
+    filesByType: { [key: string]: number };
+    totalCategories: number;
+    totalRules: number;
+    autoCategorizedFiles: number;
+    last7DaysActivity: number;
+    last30DaysActivity: number;
+  };
+  categories: {
+    categoryCounts: Array<{ name: string; count: number; volume: number }>;
+    topCategories: Array<{ name: string; count: number; trend: number }>;
+    categoryTrends: Array<{ date: string; category: string; count: number }>;
+  };
+  rules: {
+    topPerforming: Array<{ name: string; matches: number; accuracy: number }>;
+    mostMisses: Array<{ name: string; misses: number; uncategorized: number }>;
+    unusedRules: Array<{ name: string; lastUsed: string; daysUnused: number }>;
+  };
+  dataTypes: {
+    distribution: Array<{ type: string; count: number; percentage: number }>;
+    successRates: Array<{ type: string; successRate: number; totalFiles: number }>;
+    annotationCoverage: Array<{ type: string; coverage: number; totalRules: number }>;
+  };
+  annotations: {
+    byDataType: Array<{ type: string; count: number }>;
+    keywords: Array<{ keyword: string; frequency: number }>;
+    boundingBoxes: Array<{ type: string; count: number }>;
+    activityOverTime: Array<{ date: string; count: number; category: string }>;
+  };
+}
 
 export default function AnalyticsPage() {
-  const [analytics, setAnalytics] = useState<{ totalFiles: number; totalAnnotations: number; totalCategories: number } | null>(null);
-  const [categoryData, setCategoryData] = useState<any[]>([]);
-  const [annotationsPerCategory, setAnnotationsPerCategory] = useState<any[]>([]);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
 
   useEffect(() => {
-    const fetchAnalytics = async () => {
+    fetchAnalyticsData();
+  }, [timeRange]);
+
+  const fetchAnalyticsData = async () => {
+    try {
       setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch('/api/analytics');
-        const result = await res.json();
-        if (result.success) {
-          setAnalytics(result.data);
-          setAnnotationsPerCategory(result.data.annotationsPerCategory || []);
-        } else {
-          setError(result.error || 'Failed to fetch analytics');
-        }
-      } catch (err) {
-        setError('Failed to fetch analytics');
-      } finally {
-        setLoading(false);
+      const response = await fetch(`/api/analytics?timeRange=${timeRange}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics data');
       }
-    };
-    fetchAnalytics();
-  }, []);
+      const data = await response.json();
+      setAnalyticsData(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  useEffect(() => {
-    // Fetch category breakdown (number of files per category)
-    const fetchCategoryBreakdown = async () => {
-      try {
-        const res = await fetch('/api/categories');
-        const result = await res.json();
-        if (result.success) {
-          // Each category: { id, name, ... }
-          // For demo, just count categories (real: count files/annotations per category)
-          setCategoryData(result.data.map((cat: any, idx: number) => ({
-            name: cat.name,
-            value: 1, // Placeholder: 1 per category
-            color: cat.color || COLORS[idx % COLORS.length],
-          })));
-        }
-      } catch {}
-    };
-    fetchCategoryBreakdown();
-  }, []);
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Header />
+        <div className="flex-1 max-w-8xl mx-auto px-4 py-8 w-full">
+          <Breadcrumb items={[{ label: 'Analytics' }]} />
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <Activity className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-gray-600">Loading analytics data...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Header />
+        <div className="flex-1 max-w-8xl mx-auto px-4 py-8 w-full">
+          <Breadcrumb items={[{ label: 'Analytics' }]} />
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+              <p className="text-red-600 mb-2">Error loading analytics</p>
+              <p className="text-gray-600 text-sm">{error}</p>
+              <button 
+                onClick={fetchAnalyticsData}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
-      <div className="flex-1 max-w-5xl mx-auto px-4 py-8 w-full">
+      <div className="flex-1 max-w-8xl mx-auto px-4 py-8 w-full">
         <Breadcrumb items={[{ label: 'Analytics' }]} />
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Analytics Dashboard</h1>
-        {loading ? (
-          <div className="text-center text-gray-500 py-12">Loading analytics...</div>
-        ) : error ? (
-          <div className="text-center text-red-500 py-12">{error}</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow p-6 flex flex-col items-center">
-              <span className="text-4xl font-bold text-blue-700">{analytics?.totalFiles ?? '--'}</span>
-              <span className="text-sm text-gray-500 mt-2">Total Files</span>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6 flex flex-col items-center">
-              <span className="text-4xl font-bold text-green-700">{analytics?.totalAnnotations ?? '--'}</span>
-              <span className="text-sm text-gray-500 mt-2">Total Annotations</span>
-            </div>
-            <div className="bg-white rounded-lg shadow p-6 flex flex-col items-center">
-              <span className="text-4xl font-bold text-purple-700">{analytics?.totalCategories ?? '--'}</span>
-              <span className="text-sm text-gray-500 mt-2">Categories</span>
-            </div>
+        
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+              <BarChart3 className="h-8 w-8 mr-3 text-blue-600" />
+              Analytics Dashboard
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Comprehensive insights into your data annotation and categorization activities
+            </p>
+          </div>
+          
+          {/* Time Range Selector */}
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600">Time Range:</span>
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value as '7d' | '30d' | '90d')}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="90d">Last 90 Days</option>
+            </select>
+          </div>
+        </div>
+
+        {analyticsData && (
+          <div className="space-y-8">
+            {/* Overview Dashboard */}
+            <OverviewDashboard data={analyticsData.overview} />
+            
+            {/* Category Insights */}
+            <CategoryInsights data={analyticsData.categories} />
+            
+            {/* Rule Effectiveness */}
+            <RuleEffectiveness data={analyticsData.rules} />
+            
+            {/* Data Type Distribution */}
+            <DataTypeDistribution data={analyticsData.dataTypes} />
+            
+            {/* Annotation Statistics */}
+            <AnnotationStatistics data={analyticsData.annotations} />
           </div>
         )}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-4 text-gray-900">Category Breakdown</h2>
-          {categoryData.length === 0 ? (
-            <div className="text-gray-500 text-sm">No categories found.</div>
-          ) : (
-            <div className="w-full h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    label
-                  >
-                    {categoryData.map((entry, idx) => (
-                      <Cell key={`cell-${idx}`} fill={entry.color || COLORS[idx % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-        <div className="bg-white rounded-lg shadow p-6 mt-8">
-          <h2 className="text-lg font-semibold mb-4 text-gray-900">Annotations per Category</h2>
-          {annotationsPerCategory.length === 0 ? (
-            <div className="text-gray-500 text-sm">No annotation data found.</div>
-          ) : (
-            <div className="w-full h-72">
-              <BarResponsiveContainer width="100%" height="100%">
-                <BarChart data={annotationsPerCategory} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="categoryName" />
-                  <YAxis allowDecimals={false} />
-                  <RechartsTooltip />
-                  <Bar dataKey="count" fill="#3B82F6" />
-                </BarChart>
-              </BarResponsiveContainer>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );

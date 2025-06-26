@@ -14,13 +14,20 @@ export default function Home() {
   const tableRef = useRef<ImageMetadataTableRef>(null);
   const router = useRouter();
 
-  const handleDataUpload = () => {
+  const handleDataUpload = (dataUrl: string, filename: string) => {
     setUploadSuccess(true);
     toast.success('Data uploaded successfully! You can now annotate it from the table below.');
     
     // Refresh the table to show the new file
     if (tableRef.current) {
       tableRef.current.refresh();
+      
+      // Highlight the newly uploaded file after a short delay to ensure the table has refreshed
+      setTimeout(() => {
+        if (tableRef.current) {
+          tableRef.current.highlightNewUpload(filename);
+        }
+      }, 500);
     }
     
     // Reset success state after 3 seconds
@@ -42,7 +49,7 @@ export default function Home() {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-6">
               <h2 className="text-xl font-semibold mb-4 text-gray-900">Upload Data</h2>
-              <DataUpload onDataUpload={() => handleDataUpload()} />
+              <DataUpload onDataUpload={(dataUrl, filename) => handleDataUpload(dataUrl, filename)} />
               
               {uploadSuccess && (
                 <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
