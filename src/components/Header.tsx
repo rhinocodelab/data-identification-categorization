@@ -12,7 +12,7 @@ interface HeaderProps {
 }
 
 export default function Header({ 
-  title = "Data Annotation & Categorization Tool", 
+  title = "Data Annotation, Identification & Categorization Tool", 
   subtitle = "Upload data files and manage your annotation projects",
   showBackButton = false,
   backUrl = "/",
